@@ -1,0 +1,21 @@
+{
+  "short_name": "REPORT",
+  "name": "sdb.net.ua",
+  "icons": [
+    {
+      "src": "/res/scales-52.png",
+      "type": "image/png",
+      "sizes": "52x52"
+    },
+    {
+      "src": "/res/scales-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/report/index.html",
+  "background_color": "#abc0df",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#abc0df"
+}

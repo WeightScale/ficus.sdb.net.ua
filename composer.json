@@ -1,0 +1,15 @@
+{
+  "name": "vendor_name/ficus.sdb.net.ua",
+  "description": "description",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Konst",
+      "email": "kreogen@email.ua"
+    }
+  ],
+  "require": {
+    "ext-mysqli": "*"
+  }
+}

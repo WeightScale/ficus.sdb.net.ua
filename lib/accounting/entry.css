@@ -1,0 +1,62 @@
+.e-box{
+    position: absolute;
+    max-width: 360px;
+    min-width: 280px;
+    width: 100%;
+    background: white;
+    color: var(--tc);
+    z-index: 10;
+    cursor: grab;
+    user-select: none;
+    border: 1px solid black;
+}
+.e-box:active{
+    cursor: grabbing;
+}
+.e-close-button{
+    position: absolute;
+    right: 0;
+    top: 0;
+    border: 0;
+    border-radius: 0 3px 0 0;
+    cursor: pointer;
+    background-color: transparent;
+    color: var(--text-color);
+    font-size: 26px;
+    padding: 0 10px;
+}
+.e-close-button:hover{
+    background: #c5d0ea;
+}
+.e-box select{
+    width: 100%;
+    margin: 5px 0;
+    text-align: left;
+}
+.e-box input[type="date"]{
+    width: 100%;
+}
+input,select,button{
+    outline: revert;
+}
+.a-box label,.a-box input{
+    display: block;
+}
+.a-box input.text {
+    margin-bottom:12px;
+    padding: .4em;
+}
+.a-box label{
+    text-align: left;
+}
+.a-box fieldset { padding:0; border:0; margin-top:25px; }
+.a-box input[type="submit"]{
+    background: #f6f6f6;
+}
+.s-box .click{
+    text-align: right;
+}
+.flex{
+    display: flex;
+    justify-content: space-between;
+}
