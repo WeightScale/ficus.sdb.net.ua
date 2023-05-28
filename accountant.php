@@ -74,7 +74,8 @@ if($Auth->isAuth() && isset($_GET['command'])){
 <head>
     <title>Бухгалтерия</title>
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-    <?php /*include "head.php"; */?>
+    <link rel="icon" href="/wallet-solid.svg">
+    <link rel="manifest" href="/manifest.json">
     <link href="/lib/webdatarocks/webdatarocks.min.css" rel="stylesheet" />
     <script src="/lib/webdatarocks/webdatarocks.toolbar.min.js"></script>
     <script src="/lib/webdatarocks/webdatarocks.js"></script>
@@ -85,6 +86,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
         }
         body{
             max-width: unset;
+            position: relative;
         }
         nav{
             display: flex;
@@ -103,11 +105,15 @@ if($Auth->isAuth() && isset($_GET['command'])){
         <?php if(!$Auth->isAuth()){?>
             <style>
                 .auth-box{
+                    position: relative;
                     max-width: 360px;
                     width: 100%;
                     border-radius: 4px;
                     border: 1px solid black;
-                    margin: auto auto;
+                    /*margin: auto auto;*/
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%,-50%);
                 }
                 form{
                     background: transparent;
@@ -157,11 +163,13 @@ if($Auth->isAuth() && isset($_GET['command'])){
             <script src="/lib/data_tables/datatables.min.js"></script>
             <script src="/lib/dexie/dexie.min.js"></script>
             <script src="/lib/accounting/entry.min.js"></script>
-            <link rel="stylesheet" href="/css.min.css">
             <link rel="stylesheet" href="/lib/accounting/entry.min.css">
             <style>
                 body{
                     max-width: unset;
+                }
+                nav{
+                    overflow: unset;
                 }
                 .form-out{
                     background: unset;
@@ -243,7 +251,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
                 <details style="margin: 0 20px">
                     <summary>Таблица проводок</summary>
                     <!--<table id="entries_table" style="font-size: small;"></table>-->
-                    <table id="entries_table" class="display" style="width:100%;user-select: none;white-space: nowrap;" ></table>
+                    <table id="entries_table" class="display" style="font-size: small;width:100%;user-select: none;white-space: nowrap;" ></table>
                 </details>
                 <div id="pivot_container" class="tabcontent"></div>
             </main>
@@ -519,7 +527,13 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     DB=new AccountingDB('<?= sha1($_SESSION['user_data']->id)?>');
                     DB.on(async (e,t)=>{
                         newUpdate(t,()=>creatCSV().then(f=>{
-                            pivot.setReport(report_default);
+                            DB.GV("default").then(d=>{
+                                if(d){
+                                    d.dataSource.filename=f;
+                                    pivot.setReport(d);
+                                }else
+                                    pivot.setReport(report_default);
+                            })
                         }));
                     })
                     Entries = $("#entries_table").DataTable({
@@ -715,6 +729,9 @@ if($Auth->isAuth() && isset($_GET['command'])){
                         global: {
                             localization: "/lib/webdatarocks/ru.json"
                         }
+                    });
+                    pivot.on('reportchange', function() {
+                        DB.AD("default",pivot.getReport());
                     });
                     $('.new_entry').click(e=>{
                         new EntryForm().onData(t=>{

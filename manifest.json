@@ -1,0 +1,22 @@
+{
+  "short_name": "FICUS",
+  "name": "FICUS: Accountant",
+  "icons": [
+    {
+      "src": "/wallet-solid.svg",
+      "type": "image/svg+xml",
+      "sizes": "52x52"
+    },
+    {
+      "src": "/wallet-solid.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ],
+  "id": "/accountant.php",
+  "start_url": "/accountant.php",
+  "background_color": "#abc0df",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#abc0df"
+}
