@@ -3,13 +3,13 @@
   "name": "FICUS: Accountant",
   "icons": [
     {
-      "src": "/wallet-solid.svg",
-      "type": "image/svg+xml",
-      "sizes": "52x52"
+      "src": "/wallet-48.png",
+      "type": "image/png",
+      "sizes": "48x48"
     },
     {
-      "src": "/wallet-solid.svg",
-      "type": "image/svg+xml",
+      "src": "/wallet-512.png",
+      "type": "image/png",
       "sizes": "512x512"
     }
   ],
