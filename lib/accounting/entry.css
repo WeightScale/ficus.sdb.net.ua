@@ -5,7 +5,7 @@
     width: 100%;
     background: white;
     color: var(--tc);
-    z-index: 10;
+    z-index: 13;
     cursor: grab;
     user-select: none;
     border: 1px solid black;

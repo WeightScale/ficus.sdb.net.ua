@@ -229,12 +229,26 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     background: unset;
                     color: black;
                 }
+
+                .acc-table-box>div{
+                    padding-bottom: 20px;
+                }
+                .acc-table-box{
+                    position: absolute;
+                    padding: 10px;
+                    margin: 0 auto;
+                    z-index: 12;
+                    background: #fff;
+                    border: 1px solid #000;
+                    cursor: grab;
+                }
             </style>
             <div id="loader" style="display: none" class="loader"></div>
             <nav>
                 <?php
                     $user_type = isset($_SESSION['user_data'])?$_SESSION['user_data']->{'type'}:null;
                     if($user_type&&in_array(1,$user_type)){
+                        echo "<div class='a-acc-table' title='Таблица проводок'><i class='fas fa-table'></i></i></div>";
                         echo "<div class='a-sub-book' title='Субконто'><i class='fas fa-list-alt'></i></i></div>";
                         echo "<div class='a-acc-book' title='Счета'><i class='fas fa-window-maximize'></i></div>";
                         echo "<div class='a-sync' title='Обновить справочники'><i class='fas fa-sync-alt'></i></div>";
@@ -248,11 +262,12 @@ if($Auth->isAuth() && isset($_GET['command'])){
             </nav>
             <main>
                 <div id="datalists"></div>
-                <details style="margin: 0 20px">
-                    <summary>Таблица проводок</summary>
+                <div class="acc-table-box" hidden="hidden">
+                    <div>Таблица проводок</div>
+                    <button class='e-close-button'>×</button>
                     <!--<table id="entries_table" style="font-size: small;"></table>-->
                     <table id="entries_table" class="display" style="font-size: small;width:100%;user-select: none;white-space: nowrap;" ></table>
-                </details>
+                </div>
                 <div id="pivot_container" class="tabcontent"></div>
             </main>
             <script>
@@ -783,6 +798,13 @@ if($Auth->isAuth() && isset($_GET['command'])){
                                 });
                             }
                         }).open();
+                    })
+                    $('.a-acc-table').click(e=>{
+                        let pW=$("main").width(),T=$('.acc-table-box'),eW=T.outerWidth();
+                        T.css('left',pW/2-eW/2).css('top','10%').draggable({containment: "parent"}).show();
+                    });
+                    $('.acc-table-box .e-close-button').click(e=>{
+                        $('.acc-table-box').hide();
                     })
                     $('.a-sub-book').click(e=>{
                         new SubcontoForm().load(function (i){
