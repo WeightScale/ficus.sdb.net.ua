@@ -214,14 +214,14 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     content: "-";
                     background-color: #d33333;
                 }
-                .dataTables_wrapper{
+                /*.dataTables_wrapper{
                     width: fit-content;
-                }
+                }*/
                 .t-remove{
                     width: fit-content;
                     font-size: small;
                     background: white;
-                    /*border: 1px solid;*/
+                    border: 1px solid;
                     margin: 0 5px;
                     /*border-radius: 3px;*/
                 }
@@ -263,7 +263,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
             <main>
                 <div id="datalists"></div>
                 <div class="acc-table-box" hidden="hidden">
-                    <div>Таблица проводок</div>
+                    <div>Таблица проводок <span class="new_entry" title="Новая проводка"><i class="fas fa-plus-circle"></i></span></div>
                     <button class='e-close-button'>×</button>
                     <!--<table id="entries_table" style="font-size: small;"></table>-->
                     <table id="entries_table" class="display" style="font-size: small;width:100%;user-select: none;white-space: nowrap;" ></table>
@@ -571,6 +571,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
                         language: {
                             url: "../lib/data_tables/data_tables_ru.json"
                         },
+                        lengthMenu: [[10], ["10"]],
                         pageLength: 10,
                         order: [[ 0, "desc" ]]
                     });
@@ -800,8 +801,10 @@ if($Auth->isAuth() && isset($_GET['command'])){
                         }).open();
                     })
                     $('.a-acc-table').click(e=>{
-                        let pW=$("main").width(),T=$('.acc-table-box'),eW=T.outerWidth();
-                        T.css('left',pW/2-eW/2).css('top','10%').draggable({containment: "parent"}).show();
+                        let pW=$("main").width(),T=$('.acc-table-box'),eW=T.outerWidth(),H=T.height();
+                        T.css('left',pW/2-eW/2).css('top','10%').resizable({
+                            minWidth: 820,minHeight:H,maxHeight:H
+                        }).draggable({containment: "parent"}).show();
                     });
                     $('.acc-table-box .e-close-button').click(e=>{
                         $('.acc-table-box').hide();
