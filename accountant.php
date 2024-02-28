@@ -4,12 +4,16 @@
 require_once "lib/accounting/Auth.php";
 require_once "lib/accounting/Account.php";
 require_once "lib/accounting/Ficus.php";
+require_once "lib/accounting/Database.php";
+require_once "lib/accounting/Notify.php";
 
 use accounting\Auth;
 use accounting\Entries;
 use accounting\AccountData;
 use accounting\Account;
 use accounting\Ficus;
+use accounting\FicusDatabase;
+use accounting\Notify;
 
 $Auth = new Auth($_POST);
 $msg=$Auth->getMsg();
@@ -17,6 +21,41 @@ $msg=$Auth->getMsg();
 if(isset($_POST['command'])){
     $_GET=$_POST;
 }
+if(isset($_GET['command']) && $_GET['command'] == "linkrestore"){
+    if(isset($_SESSION["linkrestore"])){
+        unset($_SESSION["linkrestore"]);
+        $database = new FicusDatabase();
+        try {
+            $database->query("SELECT `double_hash` FROM `users` WHERE `email` = ?", $_GET["email"]);
+            if ($database->next()) {
+                if ($database->get("double_hash") == $_GET["double_hash"]) {
+
+                    $password = Auth::generatePassword();
+
+                    $subject = "Временный пароль";
+                    $message1 = "Ваш временный пароль";
+                    $message2 = "Нажмите";
+                    $message3 = "сюда";
+                    $message4 = "чтобы сразу войти в свой кабинет";
+                    $message5 = "Это временный пароль. Рекомендуем изменить его в своём личном кабинете.";
+
+                    $database->query_ex("UPDATE `users` SET `double_hash` = ? WHERE `email` = ?", sha1(sha1($password)), $_GET["email"]);
+                    Notify::email($_GET["email"], $subject, "<p>" . $message1 . ": <b>" . $password . "</b></p><p>" . $message2 . " <a href='" . htmlentities("https://ficus.sdb.net.ua/index.php?email=" . $_GET["email"] . "&hash=" . sha1($password)) . "'>" . $message3 . "</a>, " . $message4 . ".</p><p>" . $message5 . "</p>");
+                    $msg = "Пароль отправлен на указанную почту";
+                } else
+                    throw new Exception("Недействительная ссылка");
+
+            } else
+                throw new Exception("Введённая почта не зарегистрирована");
+            //header("Location: ".$_SERVER['PHP_SELF']);
+        }catch (Exception $e){
+            $msg = $e->getMessage();
+        }
+    }else
+        $msg = "Недействительная ссылка";
+
+}
+
 
 if($Auth->isAuth() && isset($_GET['command'])){
     switch ($_GET['command']){
@@ -64,6 +103,19 @@ if($Auth->isAuth() && isset($_GET['command'])){
             break;
         case 's-update':
             (new AccountData($_SESSION['user_data']))->subconto()->update()->echo();
+        case 'save-report':
+            $database = new FicusDatabase();
+            try {
+                $user = $_SESSION["user_data"]->id;
+                $name = $_GET["name"];
+                $value = $_GET["value"];
+                $database->query_ex("INSERT INTO reports(user, name, value) VALUES (?,?,?)",$user,$name,json_encode($value,JSON_UNESCAPED_UNICODE) );
+                $response = $_GET;
+            }catch (Exception $e){
+                $response["error"] = $e->getMessage();
+            }
+            echo json_encode($response,JSON_UNESCAPED_UNICODE);
+            break;
     }
     exit;
 }
@@ -74,12 +126,13 @@ if($Auth->isAuth() && isset($_GET['command'])){
 <head>
     <title>Бухгалтерия</title>
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-    <link rel="icon" href="/wallet-solid.svg">
-    <link rel="manifest" href="/manifest.json">
-    <link href="/lib/webdatarocks/webdatarocks.min.css" rel="stylesheet" />
-    <script src="/lib/webdatarocks/webdatarocks.toolbar.min.js"></script>
-    <script src="/lib/webdatarocks/webdatarocks.js"></script>
-    <link rel="stylesheet" href="/css.min.css?<?=filemtime(__DIR__."/css.min.css")?>">
+    <link rel="icon" href="wallet-solid.svg">
+    <link rel="manifest" href="manifest.json">
+    <link href="lib/webdatarocks/webdatarocks.min.css" rel="stylesheet" />
+    <script src="lib/webdatarocks/webdatarocks.toolbar.min.js"></script>
+    <script src="lib/webdatarocks/webdatarocks.js"></script>
+    <script src="lib/jquery/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="css.min.css?<?=filemtime(__DIR__."/css.min.css")?>">
     <style>
         *{
             box-sizing: border-box;
@@ -111,9 +164,9 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     border-radius: 4px;
                     border: 1px solid black;
                     /*margin: auto auto;*/
-                    top: 50%;
+                    top: 20%;
                     left: 50%;
-                    transform: translate(-50%,-50%);
+                    transform: translate(-50%,-20%);
                 }
                 form{
                     background: transparent;
@@ -136,15 +189,27 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     margin: 10px 0 0 -25px;
                     cursor: pointer;
                 }
+                a > input[type="submit"]{
+                    background: unset;
+                    color: unset;
+                    border: unset;
+                }
             </style>
             <div class="auth-box">
-                <form method="POST">
+                <form method="POST" onsubmit="return authForm(event);">
                     <label>email:<br/><input type="email" name="email" autocomplete="new-password" placeholder="Email" required style="width: 100%;"></label>
                     <label for="id-psw1">password:</label><br/>
-                    <input id="id-psw1" name="password" type="password" autocomplete="new-password" placeholder="Password" required style="width: 100%;"/>
+                    <input id="id-psw1" name="password" type="password" autocomplete="new-password" placeholder="Password" style="width: 100%;"/>
                     <i onclick="showPsw('id-psw1')" class="eye fas fa-eye"></i>
                     <hr/>
-                    <input type="submit" style="width: 100%;" name="submit" value="Войти">
+                    <input id="a-cmd" type="hidden" name='command'>
+                    <input id="login" type="submit" style="width: 100%;" name="submit" value="Войти">
+                    <details>
+                        <summary>Забыл пароль?</summary>
+                        <img src="/captcha.php" title="Капча" alt="" /><br>
+                        <label>Капча</label><br><input name="captcha" style="width: 100%;">
+                        <a><input id="restore" type="submit" name="submit" value="востановить"></a>
+                    </details>
                 </form>
                 <?php if(!empty($msg)){echo "<div style='text-align: center;color: red;font-weight: 700;margin: 10px auto;'>".$msg."</div>";}?>
             </div>
@@ -153,6 +218,44 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     let x = _(e);
                     x.type=x.type==="password"?"text":"password"
                 }
+
+                authForm=(e)=>{
+                    $(e.currentTarget).find("#a-cmd").val(e.submitter.id);
+                    let form = new FormData(e.currentTarget);
+                    if(form.get('password')==="" && e.submitter.id==="login"){
+                        alert("Введите пароль");
+                        return false;
+                    }
+                    if(form.get('captcha')==="" && e.submitter.id==="restore"){
+                        alert("Введите капчу");
+                        return false;
+                    }
+                    return true;
+                }
+
+                /*$(()=>{
+                    $(".auth-box > form").submit(e=>{
+                        e.preventDefault();
+                        s=e.originalEvent.submitter;
+                        f=e.currentTarget;
+                        $(f).find("#a-cmd").val(s.id).submit();
+                        / *o = $(f).serialize();
+                        block(1);
+                        server.post(this.h.serialize(),r=> {
+                            if(r.entries){
+                                DB.E.bulkPut(r.entries).then(e=>{
+                                    let F=$('#e-'+r.id).data().entry;
+                                    EntryForm.destroy(F);
+                                    Entries.U(DB);
+                                })
+                            }
+                        }).fail((e)=>{
+                            console.log(e.responseJSON);
+                        }).always(()=>{
+                            block(0);
+                        });* /
+                });
+                })*/
             </script>
         <?php }else{?>
             <script src="/lib/jquery/jquery-3.6.0.min.js"></script>
@@ -242,34 +345,13 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     border: 1px solid #000;
                     cursor: grab;
                 }
+                .ui-dialog-content > form{
+                    text-align: left;
+                    min-width: unset;
+                    border: unset;
+                    padding: unset;
+                }
             </style>
-            <div id="loader" style="display: none" class="loader"></div>
-            <nav>
-                <?php
-                    $user_type = isset($_SESSION['user_data'])?$_SESSION['user_data']->{'type'}:null;
-                    if($user_type&&in_array(1,$user_type)){
-                        echo "<div class='a-acc-table' title='Таблица проводок'><i class='fas fa-table'></i></i></div>";
-                        echo "<div class='a-sub-book' title='Субконто'><i class='fas fa-list-alt'></i></i></div>";
-                        echo "<div class='a-acc-book' title='Счета'><i class='fas fa-window-maximize'></i></div>";
-                        echo "<div class='a-sync' title='Обновить справочники'><i class='fas fa-sync-alt'></i></div>";
-                    }
-                ?>
-                <div class="d-update" title="Синхронизация с сервером"><i class="fas fa-database"></i></div>
-                <div class="new_entry" title="Новая проводка"><i class="fas fa-plus-circle"></i></div>
-                <form method="post" class="form-out">
-                    <button type="submit" name="out" class="background-problem" style="width: 30px;"><i class='fas fa-sign-out-alt'></i></button>
-                </form>
-            </nav>
-            <main>
-                <div id="datalists"></div>
-                <div class="acc-table-box" hidden="hidden">
-                    <div>Таблица проводок <span class="new_entry" title="Новая проводка"><i class="fas fa-plus-circle"></i></span></div>
-                    <button class='e-close-button'>×</button>
-                    <!--<table id="entries_table" style="font-size: small;"></table>-->
-                    <table id="entries_table" class="display" style="font-size: small;width:100%;user-select: none;white-space: nowrap;" ></table>
-                </div>
-                <div id="pivot_container" class="tabcontent"></div>
-            </main>
             <script>
                 let Entries,Acc,Sub,pivot,DB,BOX={},url_csv;
                 let report_default={
@@ -494,19 +576,19 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     })
                     return DB.R.toArray().then(e=>{
                         let csv = [['Тип','ВидСубконто','Субконто','-Сумма','-Кол','D+Дата',"дата",'+ДТ'/*,'ДТТСК1','ДТТСК2','ДТСК1','ДТСК2'*/,'+КТ'/*,'КТТСК1','КТТСК2','КТСК1','КТСК2'*/,'Валюта','Заметка','+ИД'],...e.map(i => [
-                                i.at,
-                                i.vs,
-                                i.s,
-                                i.sum,
-                                i.counts,
-                                i.date,
-                                i.date,
-                                i.D,
-                                i.K,
-                                i.currency,
-                                i.note,
-                                i.id
-                            ])
+                            i.at,
+                            i.vs,
+                            i.s,
+                            i.sum,
+                            i.counts,
+                            i.date,
+                            i.date,
+                            i.D,
+                            i.K,
+                            i.currency,
+                            i.note,
+                            i.id
+                        ])
                         ].map(e => e.join(","))
                             .join("\n");
                         url_csv= window.URL.createObjectURL(new File([csv],'csv.csv',{type:'text/csv'}));
@@ -551,6 +633,10 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             })
                         }));
                     })
+                    {let pW=$("main").width(),T=$('.acc-table-box'),eW=T.outerWidth(),H=T.height();
+                        T.css('left',pW/2-eW/2).css('top','10%').resizable({
+                            minWidth: 820,minHeight:H,maxHeight:H
+                        }).draggable({containment: "parent"});}
                     Entries = $("#entries_table").DataTable({
                         columns: [
                             { title: "id" },
@@ -645,6 +731,9 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             row.child("<div class='t-remove'><table >"+html+"</table></div>").show();
                             tr.addClass('shown');
                         }
+                    }).on('draw', function () {
+                        let T=$('.acc-table-box'),H=T.height(),o="option";
+                        T.resizable(o,"minHeight",H).resizable(o,"maxHeight",H);
                     });
                     Entries.Rows=(A)=>{
                         return A.map(e => {
@@ -800,11 +889,50 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             }
                         }).open();
                     })
+                    $('.a-report-server').click(e=>{
+                        let html = "<p >Сохранить текущий отчет и отправит на сервер.</p>" +
+                            "<hr><br>"+
+                            "<form method='post'>" +
+                            //"<fieldset>" +
+                            "<label for='name'>Имя</label>" +
+                            "<input type='text' name='name' id='name' class='text ui-widget-content ui-corner-all'>" +
+                            "<input type='hidden' name='command' value='save-report'>" +
+                            //"</fieldset>" +
+                            "</form>";
+                        $('<div></div>').dialog({
+                            height: 'auto',
+                            resizable: false,
+                            modal: true, title: "Сохранить отчет",
+                            open: function (){
+                                $(this).html(html);
+                                $($(this).find("form")[0]).on('submit',function (e){
+                                    let form = new FormData(e.currentTarget);
+                                    const o = Object.fromEntries(form.entries());
+                                    o.value = pivot.getReport();
+                                    server.post(o,r=>{
+                                        if (r.error){
+                                            ui.alert(r.error);
+                                        }else
+                                            ui.alert("OK");
+                                    },e=>{
+                                        console.log(e);
+                                    })
+                                    $(this).dialog("close");
+                                    return false;
+                                }.bind(this))
+                            },
+                            buttons: {
+                                Да: function (){
+                                    $($(this).find("form")[0]).submit();
+                                    //console.log(form);
+                                },
+                                Нет: function (){$(this).dialog("close");}
+                            }
+                        });
+                        console.log("server");
+                    });
                     $('.a-acc-table').click(e=>{
-                        let pW=$("main").width(),T=$('.acc-table-box'),eW=T.outerWidth(),H=T.height();
-                        T.css('left',pW/2-eW/2).css('top','10%').resizable({
-                            minWidth: 820,minHeight:H,maxHeight:H
-                        }).draggable({containment: "parent"}).show();
+                        $('.acc-table-box').show();
                     });
                     $('.acc-table-box .e-close-button').click(e=>{
                         $('.acc-table-box').hide();
@@ -858,6 +986,35 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     })
                 })
             </script>
+            <div id="loader" style="display: none" class="loader"></div>
+            <nav>
+                <?php
+                    $user_type = isset($_SESSION['user_data'])?$_SESSION['user_data']->{'type'}:null;
+                    if($user_type&&in_array(1,$user_type)){
+                        echo "<div class='a-report-server' title='Отчеты на сервере'><i class='fas fa-cloud'></i></div>";
+                        echo "<div class='a-acc-table' title='Таблица проводок'><i class='fas fa-table'></i></div>";
+                        echo "<div class='a-sub-book' title='Субконто'><i class='fas fa-list-alt'></i></div>";
+                        echo "<div class='a-acc-book' title='Счета'><i class='fas fa-window-maximize'></i></div>";
+                        echo "<div class='a-sync' title='Обновить справочники'><i class='fas fa-sync-alt'></i></div>";
+                    }
+                ?>
+                <div class="d-update" title="Синхронизация с сервером"><i class="fas fa-database"></i></div>
+                <div class="new_entry" title="Новая проводка"><i class="fas fa-plus-circle"></i></div>
+                <form method="post" class="form-out">
+                    <button type="submit" name="out" class="background-problem" style="width: 30px;"><i class='fas fa-sign-out-alt'></i></button>
+                </form>
+            </nav>
+            <main>
+                <div id="datalists"></div>
+                <div class="acc-table-box" hidden="hidden">
+                    <div>Таблица проводок <span class="new_entry" title="Новая проводка"><i class="fas fa-plus-circle"></i></span></div>
+                    <button class='e-close-button'>×</button>
+                    <!--<table id="entries_table" style="font-size: small;"></table>-->
+                    <table id="entries_table" class="display" style="font-size: small;width:100%;user-select: none;white-space: nowrap;" ></table>
+                </div>
+                <div id="pivot_container" class="tabcontent"></div>
+            </main>
+
         <?php }?>
 </body>
 </html>
