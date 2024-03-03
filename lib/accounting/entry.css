@@ -8,7 +8,8 @@
     z-index: 13;
     cursor: grab;
     user-select: none;
-    border: 1px solid black;
+    border: 1px solid gray;
+    box-shadow: 2px 2px 5px gray;
 }
 .e-box:active{
     cursor: grabbing;
@@ -59,4 +60,22 @@ input,select,button{
 .flex{
     display: flex;
     justify-content: space-between;
+}
+.r-box option:hover{
+    background: lightgray;
+}
+/* Optionally define a fixed width for menus */
+.ui-menu {
+    width: 220px;
+}
+/* Allow to use <kbd> elements inside the title to define shortcut hints. */
+.ui-menu kbd {
+    padding-left: 1em;
+    float: right;
+}
+
+/* Define a custom icon */
+.ui-icon.custom-icon-firefox {
+    background-image: url(application_firefox.gif);
+    background-position: 0 0;
 }

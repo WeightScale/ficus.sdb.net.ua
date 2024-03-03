@@ -62,7 +62,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
         case 'get_entries'://Получить проводки
             echo (new Entries($_SESSION['user_data']))->getJson();
             break;
-        case 'get_account_data'://Получить справочники
+        case 'get_account_data'://Получить справочники и отчеты
             echo (new AccountData($_SESSION['user_data']))->all()->getJson();
             break;
         case 'sync_all':
@@ -110,6 +110,17 @@ if($Auth->isAuth() && isset($_GET['command'])){
                 $name = $_GET["name"];
                 $value = $_GET["value"];
                 $database->query_ex("INSERT INTO reports(user, name, value) VALUES (?,?,?)",$user,$name,json_encode($value,JSON_UNESCAPED_UNICODE) );
+                $response = $_GET;
+            }catch (Exception $e){
+                $response["error"] = $e->getMessage();
+            }
+            echo json_encode($response,JSON_UNESCAPED_UNICODE);
+            break;
+        case 'del-report':
+            $database = new FicusDatabase();
+            try {
+                $id = $_GET["value"];
+                $database->query_ex("DELETE FROM reports WHERE id=?", $id);
                 $response = $_GET;
             }catch (Exception $e){
                 $response["error"] = $e->getMessage();
@@ -261,6 +272,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
             <script src="/lib/jquery/jquery-3.6.0.min.js"></script>
             <link rel="stylesheet" href="/lib/jquery-ui/jquery-ui.css">
             <script src="/lib/jquery-ui/jquery-ui.js"></script>
+            <script src="lib/jquery.ui-contextmenu.min.js"></script>
             <link rel="stylesheet" href="/lib/data_tables/datatables.custom.min.css?<?=filemtime(__DIR__."/lib/data_tables/datatables.custom.min.css")?>">
             <!--<link rel="stylesheet" href="https://cdn.datatables.net/1.13.3/css/jquery.dataTables.min.css">-->
             <script src="/lib/data_tables/datatables.min.js"></script>
@@ -342,7 +354,8 @@ if($Auth->isAuth() && isset($_GET['command'])){
                     margin: 0 auto;
                     z-index: 12;
                     background: #fff;
-                    border: 1px solid #000;
+                    border: 1px solid gray;
+                    box-shadow: 2px 2px 5px gray;
                     cursor: grab;
                 }
                 .ui-dialog-content > form{
@@ -529,8 +542,8 @@ if($Auth->isAuth() && isset($_GET['command'])){
                 creatCSV=async ()=>{
                     let Sub=new Subcontos(DB);
                     await Sub.update();
-                    await DB.db.transaction('rw', DB.R,DB.E, async ()=>{
-                        await DB.R.clear();
+                    await DB.db.transaction('rw', DB.CS,DB.E, async ()=>{
+                        await DB.CS.clear();
                         let F=(id,A)=>{
                             return A.find(a=>a.id===id)
                         }
@@ -542,7 +555,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             k1.s=k1.credit_subconto1?Sub.get(k1.credit_subconto1).name:"";
                             k1.D=D.number;
                             k1.K=C.number;
-                            await DB.R.put(k1);
+                            await DB.CS.put(k1);
 
                             if(k2.credit_subconto2){
                                 k2.at='Кредит';
@@ -550,7 +563,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
                                 k2.s=Sub.get(k2.credit_subconto2).name;
                                 k2.D=D.number;
                                 k2.K=C.number;
-                                await DB.R.put(k2);
+                                await DB.CS.put(k2);
                             }
 
                             e.sum=-e.sum;
@@ -561,7 +574,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             k1.s=Sub.get(k1.debit_subconto1).name;
                             k1.D=C.number;
                             k1.K=D.number;
-                            await DB.R.put(k1);
+                            await DB.CS.put(k1);
 
                             k2=e
                             if(k2.debit_subconto2){
@@ -570,11 +583,11 @@ if($Auth->isAuth() && isset($_GET['command'])){
                                 k2.s=Sub.get(k2.debit_subconto2).name;
                                 k2.D=C.number;
                                 k2.K=D.number;
-                                await DB.R.put(k2);
+                                await DB.CS.put(k2);
                             }
                         })
                     })
-                    return DB.R.toArray().then(e=>{
+                    return DB.CS.toArray().then(e=>{
                         let csv = [['Тип','ВидСубконто','Субконто','-Сумма','-Кол','D+Дата',"дата",'+ДТ'/*,'ДТТСК1','ДТТСК2','ДТСК1','ДТСК2'*/,'+КТ'/*,'КТТСК1','КТТСК2','КТСК1','КТСК2'*/,'Валюта','Заметка','+ИД'],...e.map(i => [
                             i.at,
                             i.vs,
@@ -599,14 +612,49 @@ if($Auth->isAuth() && isset($_GET['command'])){
                 newUpdate=(t,c)=>{
                     t.GV("last",'2000-01-01 00:00:00').then(d=>{
                         block(1);
-                        server.$({command:'e-news',date:d},async r=>{
+                        fetch('/accountant.php?'+ new URLSearchParams({command:'e-news',date:d}).toString(),{
+                            headers: {'Content-Type': 'application/json;charset=utf-8'}
+                        }).then(r=>{
+                            if(r.ok)
+                                return r.json();
+                            throw new Error(r.statusText);
+                        }).then(async r => {
+                            if (r.entries) {
+                                await t.db.transaction('rw', t.E, async () => {
+                                    await t.E.bulkPut(r.entries);
+                                })
+                            }
+                            if (r.reports) {
+                                await t.db.transaction('rw', t.R, async () => {
+                                    await t.R.bulkPut(r.reports);
+                                })
+                            }
+                            if (r.date)
+                                await t.AD("last", r.date);
+                        }).then(async r => {
+                            Acc = new Accounts(DB);
+                            await Acc.update();
+                            Sub = new Subcontos(DB);
+                            await Sub.update();
+                            Entries.U(t);
+                            block(0);
+                            if (c) c();
+                        }).catch(e=>{
+                            console.error(e);
+                        })
+                        /*server.$({command:'e-news',date:d},async r=>{
                             if(r.entries){
                                 await t.db.transaction('rw',t.E,t.SS,async ()=>{
                                     await t.E.bulkPut(r.entries);
-                                    if(r.date)
-                                        await t.AD("last",r.date);
                                 })
                             }
+                            if(r.reports){
+                                await t.db.transaction('rw',t.R,async ()=>{
+                                    await t.R.bulkPut(r.reports);
+                                })
+                            }
+                            if(r.date)
+                                await t.AD("last",r.date);
                         },e=>{
                             console.log(e);
                         },async ()=>{
@@ -617,7 +665,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             Entries.U(t);
                             block(0);
                             if(c)c();
-                        })
+                        })*/
                     });
                 }
                 $(()=>{
@@ -889,12 +937,37 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             }
                         }).open();
                     })
+                    $('.a-open-reports').click(e=>{
+                        new ReportsForm(DB).on((e,r)=>{
+                            switch (e){
+                                case 'report':
+                                    let R = JSON.parse(r);
+                                    R.dataSource.filename=url_csv;
+                                    pivot.setReport(R);
+
+                                    break;
+                                case 'delete':
+                                    server.post({command:"del-report",value:r},r=>{
+                                        if (r.error){
+                                            ui.alert(r.error);
+                                        }else{
+                                            DB.R.where({id:parseInt(r.value)}).delete().then(r=>{
+                                                ui.alert("OK");
+                                            })
+                                        }
+                                    },e=>{
+                                        console.log(e);
+                                    })
+                                    break;
+                            }
+                        });
+                    });
                     $('.a-report-server').click(e=>{
                         let html = "<p >Сохранить текущий отчет и отправит на сервер.</p>" +
                             "<hr><br>"+
                             "<form method='post'>" +
                             //"<fieldset>" +
-                            "<label for='name'>Имя</label>" +
+                            "<label for='name'>Имя:</label>" +
                             "<input type='text' name='name' id='name' class='text ui-widget-content ui-corner-all'>" +
                             "<input type='hidden' name='command' value='save-report'>" +
                             //"</fieldset>" +
@@ -991,7 +1064,8 @@ if($Auth->isAuth() && isset($_GET['command'])){
                 <?php
                     $user_type = isset($_SESSION['user_data'])?$_SESSION['user_data']->{'type'}:null;
                     if($user_type&&in_array(1,$user_type)){
-                        echo "<div class='a-report-server' title='Отчеты на сервере'><i class='fas fa-cloud'></i></div>";
+                        echo "<div class='a-report-server' title='Сохранить отчет на сервере'><i class='fas fa-cloud-upload-alt'></i></div>";
+                        echo "<div class='a-open-reports' title='Отчеты'><i class='fas fa-th-list'></i></div>";
                         echo "<div class='a-acc-table' title='Таблица проводок'><i class='fas fa-table'></i></div>";
                         echo "<div class='a-sub-book' title='Субконто'><i class='fas fa-list-alt'></i></div>";
                         echo "<div class='a-acc-book' title='Счета'><i class='fas fa-window-maximize'></i></div>";

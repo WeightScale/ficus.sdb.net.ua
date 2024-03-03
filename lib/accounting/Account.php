@@ -113,11 +113,16 @@ class Account{
             }else{
                 $database->query_ex("SELECT * FROM entries WHERE user=? and (registered >=? or `changed` >=?)",$this->user->id,$date,$date);
             }
-            $database->commit();
             $this->response['entries']=$database->get_array();
-            if(count($this->response['entries'])){
+
+            $database->query_ex("SELECT * FROM reports WHERE user=? and reports.update >=?",$this->user->id,$date);
+            $this->response['reports'] = $database->get_array();
+
+            $database->commit();
+
+            //if(count($this->response['entries'])){
                 $this->response['date']=date('Y-m-d H:i:s');
-            }
+            //}
         } catch (\Exception $e) {
             $this->response["error"]=(new ThrowableJson($e))->httpCode(400)->getArray();
         } finally {
@@ -220,6 +225,9 @@ class AccountData{
 
             $database->query_ex("SELECT * FROM `subconto_types`");
             $this->response['subconto_types'] = $database->get_array();
+
+            $database->query_ex("SELECT * FROM `reports`");
+            $this->response['reports'] = $database->get_array();
         } catch (Exception $e) {
             $this->response["error"]=(new ThrowableJson($e))->httpCode(400)->getArray();
         } finally {
