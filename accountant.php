@@ -539,6 +539,15 @@ if($Auth->isAuth() && isset($_GET['command'])){
                         });
                     }
                 }
+                openCSV=async () => {
+                    return DB.GV("file", null).then(f=>{
+                        if(f){
+                            url_csv= window.URL.createObjectURL(f);
+                            return url_csv;
+                        }
+                        throw new Error('empty csv file');
+                    });
+                }
                 creatCSV=async ()=>{
                     let Sub=new Subcontos(DB);
                     await Sub.update();
@@ -588,7 +597,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
                         })
                     })
                     return DB.CS.toArray().then(e=>{
-                        let csv = [['Тип','ВидСубконто','Субконто','-Сумма','-Кол','D+Дата',"дата",'+ДТ'/*,'ДТТСК1','ДТТСК2','ДТСК1','ДТСК2'*/,'+КТ'/*,'КТТСК1','КТТСК2','КТСК1','КТСК2'*/,'Валюта','Заметка','+ИД'],...e.map(i => [
+                        let csv = [['Тип','ВидСубконто','Субконто','-Сумма','-Кол','D+Дата',"дата",'+ДТ','+КТ','Валюта','Заметка','+ИД'],...e.map(i => [
                             i.at,
                             i.vs,
                             i.s,
@@ -602,17 +611,17 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             i.note,
                             i.id
                         ])
-                        ].map(e => e.join(","))
-                            .join("\n");
-                        url_csv= window.URL.createObjectURL(new File([csv],'csv.csv',{type:'text/csv'}));
-                        report_default.dataSource.filename=url_csv;
+                        ].map(e => e.join(",")).join("\n");
+                        let file = new File([csv],'csv.csv',{type:'text/csv'});
+                        DB.AD("file",file);
+                        url_csv= window.URL.createObjectURL(file);
                         return url_csv;
                     })
                 }
-                newUpdate=(t,c)=>{
-                    t.GV("last",'2000-01-01 00:00:00').then(d=>{
+                newUpdate=(t)=>{
+                    return t.GV("last",'2000-01-01 00:00:00').then(d=>{
                         block(1);
-                        fetch('/accountant.php?'+ new URLSearchParams({command:'e-news',date:d}).toString(),{
+                        return fetch('/accountant.php?'+ new URLSearchParams({command:'e-news',date:d}).toString(),{
                             headers: {'Content-Type': 'application/json;charset=utf-8'}
                         }).then(r=>{
                             if(r.ok)
@@ -631,55 +640,37 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             }
                             if (r.date)
                                 await t.AD("last", r.date);
-                        }).then(async r => {
                             Acc = new Accounts(DB);
                             await Acc.update();
                             Sub = new Subcontos(DB);
                             await Sub.update();
                             Entries.U(t);
-                            block(0);
-                            if (c) c();
-                        }).catch(e=>{
-                            console.error(e);
-                        })
-                        /*server.$({command:'e-news',date:d},async r=>{
-                            if(r.entries){
-                                await t.db.transaction('rw',t.E,t.SS,async ()=>{
-                                    await t.E.bulkPut(r.entries);
-                                })
+                            if(r.entries.length){
+                                return creatCSV();
+                            }else{
+                                return openCSV();
                             }
-                            if(r.reports){
-                                await t.db.transaction('rw',t.R,async ()=>{
-                                    await t.R.bulkPut(r.reports);
-                                })
-                            }
-                            if(r.date)
-                                await t.AD("last",r.date);
-                        },e=>{
-                            console.log(e);
-                        },async ()=>{
-                            Acc =new Accounts(DB);
-                            await Acc.update();
-                            Sub=new Subcontos(DB);
-                            await Sub.update();
-                            Entries.U(t);
-                            block(0);
-                            if(c)c();
-                        })*/
+                        }).catch(async e => {
+                            throw new Error(e);
+                        }).finally(()=>block(0))
                     });
                 }
                 $(()=>{
                     DB=new AccountingDB('<?= sha1($_SESSION['user_data']->id)?>');
                     DB.on(async (e,t)=>{
-                        newUpdate(t,()=>creatCSV().then(f=>{
+                        newUpdate(t).then((F)=>{
                             DB.GV("default").then(d=>{
                                 if(d){
-                                    d.dataSource.filename=f;
+                                    d.dataSource.filename=F;
                                     pivot.setReport(d);
-                                }else
+                                }else{
+                                    report_default.dataSource.filename=F;
                                     pivot.setReport(report_default);
+                                }
                             })
-                        }));
+                        }).catch(e=>{
+                            console.log(e);
+                        })
                     })
                     {let pW=$("main").width(),T=$('.acc-table-box'),eW=T.outerWidth(),H=T.height();
                         T.css('left',pW/2-eW/2).css('top','10%').resizable({
@@ -811,22 +802,6 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             E=E.filter(r=>r.remove===0);
                             return [E,[],[],[]];
                         }).then(async (A)=>{
-                            /*let rows=A[0].map(e=>{
-                                let D=Acc.get(e.debit),C=Acc.get(e.credit),ds1=e.debit_subconto1,ds2=e.debit_subconto2,cs1=e.credit_subconto1,cs2=e.credit_subconto2,n="Нет вида субконто";
-                                return [
-                                    e.id,
-                                    e.date,
-                                    D.number,
-                                    (ds1? "<span title='" + (D.subconto_type1 ? Sub.getType(D.subconto_type1).name : n+" 1") + "' style='cursor: help;'>" + Sub.get(ds1).name + "</span>" : "---") + "<br>" +
-                                    (ds2? "<span title='" + (D.subconto_type2 ? Sub.getType(D.subconto_type2).name : n+" 2") + "' style='cursor: help;'>" + Sub.get(ds2).name + "</span>" : "---"),
-                                    C.number,
-                                    (cs1? "<span title='" + (C.subconto_type1 ? Sub.getType(C.subconto_type1).name : n+" 1") + "' style='cursor: help;'>" + Sub.get(cs1).name + "</span>" : "---") + "<br>" +
-                                    (cs2? "<span title='" + (C.subconto_type2 ? Sub.getType(C.subconto_type2).name : n+" 2") + "' style='cursor: help;'>" + Sub.get(cs2).name + "</span>" : "---"),
-                                    e.sum + " " + e.currency,
-                                    e.note ? "<i title='" + e.note + "' style='cursor:help;' class='fas fa-info-circle'></i>" : "",
-                                    e.parent?"<i class='fas parent'></i>":""
-                                ];
-                            })*/
                             let rows=Entries.Rows(A[0]);
                             Entries.clear();
                             Entries.rows.add(rows);
@@ -848,15 +823,12 @@ if($Auth->isAuth() && isset($_GET['command'])){
                                     id: "wdr-tab-update",
                                     title: "Обновить",
                                     handler: ()=>{
-                                        newUpdate(DB,()=> {
-                                            creatCSV().then(U=>{
-                                                this.pivot.updateData({
-                                                    type: 'csv',
-                                                    filename: U
-
-                                                });
+                                        newUpdate(DB).then((F)=>{
+                                            this.pivot.updateData({
+                                                type: 'csv',
+                                                filename: F
                                             });
-                                        });
+                                        }).catch(e=>console.log(e));
                                     },
                                     icon: this.icons.connect
                                 }, {
@@ -944,7 +916,7 @@ if($Auth->isAuth() && isset($_GET['command'])){
                                     let R = JSON.parse(r);
                                     R.dataSource.filename=url_csv;
                                     pivot.setReport(R);
-
+                                    DB.AD("default", pivot.getReport());
                                     break;
                                 case 'delete':
                                     server.post({command:"del-report",value:r},r=>{
@@ -1048,11 +1020,10 @@ if($Auth->isAuth() && isset($_GET['command'])){
                             if(a){
                                 block(1)
                                 await DB.sync().finally(()=>{
-                                    newUpdate(DB,()=>{
+                                    newUpdate(DB).then(()=>{
                                         Entries.U(DB);
-                                        creatCSV();
-                                    });
-                                    block(0)
+                                    }).catch(e=>console.log(e)).finally(()=>block(0));
+                                    //block(0)
                                 });
                             }
                         })
