@@ -61,6 +61,10 @@ input,select,button{
     display: flex;
     justify-content: space-between;
 }
+.r-box select{
+    height: 100%;
+    margin: 0;
+}
 .r-box option:hover{
     background: lightgray;
 }

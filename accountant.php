@@ -277,8 +277,8 @@ if($Auth->isAuth() && isset($_GET['command'])){
             <!--<link rel="stylesheet" href="https://cdn.datatables.net/1.13.3/css/jquery.dataTables.min.css">-->
             <script src="/lib/data_tables/datatables.min.js"></script>
             <script src="/lib/dexie/dexie.min.js"></script>
-            <script src="/lib/accounting/entry.min.js"></script>
-            <link rel="stylesheet" href="/lib/accounting/entry.min.css">
+            <script src="/lib/accounting/entry.min.js?<?=filemtime(__DIR__."/lib/accounting/entry.min.js")?>"></script>
+            <link rel="stylesheet" href="/lib/accounting/entry.min.css?<?=filemtime(__DIR__."/lib/accounting/entry.min.css")?>">
             <style>
                 body{
                     max-width: unset;
