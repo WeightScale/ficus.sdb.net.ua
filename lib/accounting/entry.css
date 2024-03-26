@@ -68,6 +68,12 @@ input,select,button{
 .r-box option:hover{
     background: lightgray;
 }
+.r-head{
+    display: flex;
+    height: 40px;
+    justify-content: center;
+    align-items: center;
+}
 /* Optionally define a fixed width for menus */
 .ui-menu {
     width: 220px;
