@@ -5,7 +5,7 @@ namespace accounting;
 use Exception;
 use mysqli;
 
-define("__REMOTE_HOST__","golf.cityhost.com.ua");
+define("__REMOTE_HOST__","niro.cityhost.com.ua");
 
 class Database{
     public mysqli $mysqli;
@@ -14,7 +14,7 @@ class Database{
 
     function __construct($database, $password) {
         try {
-            $this->mysqli = new mysqli($this->local()? "golf.cityhost.com.ua" : "localhost", $database, $password, $database);
+            $this->mysqli = new mysqli($this->local()? "niro.cityhost.com.ua" : "localhost", $database, $password, $database);
             //$this->mysqli = new mysqli("sdb.net.ua", $database, $password, $database);
             $this->mysqli->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, 1);
             if ($this->mysqli->connect_error)
